@@ -61,7 +61,7 @@ async def login(email: str, password: str, region: str = "eu") -> AuthState:
     payload = {
         "account": email,
         "accountType": 2,
-        "password": password_md5,
+        "pwd": password_md5,
     }
     async with httpx.AsyncClient() as client:
         r = await client.post(
