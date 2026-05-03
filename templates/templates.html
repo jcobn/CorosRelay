@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CorosRelay – Templates</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<!-- Header -->
+<div class="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <span class="text-xl">⏱️</span>
+    <span class="font-bold text-lg">CorosRelay</span>
+  </div>
+  <a href="/logout" class="text-xs text-gray-400 hover:text-gray-200">Logout</a>
+</div>
+
+<div class="max-w-2xl mx-auto px-4 py-4">
+
+  <h2 class="text-lg font-bold mb-3">📚 Quick Templates</h2>
+  <p class="text-xs text-gray-400 mb-4">Tap to create a workout. Optionally schedule it to a day.</p>
+
+  <div class="space-y-3">
+    {% for t in templates %}
+    <form method="post" action="/templates/create" class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">{{ sport_emoji(t.sport_type) }}</span>
+          <span class="text-sm font-semibold">{{ t.name }}</span>
+        </div>
+        <span class="text-xs text-gray-400">{{ t.duration }} min</span>
+      </div>
+
+      <input type="hidden" name="name" value="{{ t.name }}">
+      <input type="hidden" name="sport_type" value="{{ t.sport_type }}">
+      <input type="hidden" name="duration" value="{{ t.duration }}">
+      <input type="hidden" name="intensity_type" value="{{ t.intensity_type }}">
+      <input type="hidden" name="low" value="{{ t.low }}">
+      <input type="hidden" name="high" value="{{ t.high }}">
+
+      <div class="flex items-center gap-2">
+        <select name="happen_day" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg text-xs px-2 py-1.5">
+          <option value="">Save to library only</option>
+          {% for day_opt in next_14_days %}
+          <option value="{{ day_opt.ymd }}">{{ day_opt.label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Create</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="mt-6 grid grid-cols-3 gap-2">
+    <a href="/templates" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">📚 Templates</a>
+    <a href="/workouts" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">🏋️ Workouts</a>
+    <a href="/dashboard" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">📅 This Week</a>
+  </div>
+
+</div>
+</body>
+</html>

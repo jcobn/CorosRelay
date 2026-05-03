@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CorosRelay – Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<!-- Header -->
+<div class="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <span class="text-xl">⏱️</span>
+    <span class="font-bold text-lg">CorosRelay</span>
+  </div>
+  <a href="/logout" class="text-xs text-gray-400 hover:text-gray-200">Logout</a>
+</div>
+
+<div class="max-w-2xl mx-auto px-4 py-4">
+
+  <!-- Week navigator -->
+  <div class="flex items-center justify-between mb-4">
+    <a href="/dashboard?week_offset={{ prev_week }}" class="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 text-lg">←</a>
+    <div class="text-center">
+      <p class="text-sm font-semibold">{{ week_label }}</p>
+    </div>
+    <a href="/dashboard?week_offset={{ next_week }}" class="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 text-lg">→</a>
+  </div>
+
+  <!-- Day cards -->
+  <div class="space-y-3">
+    {% for day in days %}
+    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div class="px-4 py-2.5 flex items-center justify-between {% if day.is_today %}bg-sky-900/20{% else %}bg-gray-800/40{% endif %}">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold {% if day.is_today %}text-sky-400{% else %}text-gray-300{% endif %}">{{ day.label }}</span>
+          {% if day.is_today %}<span class="text-[10px] bg-sky-600 text-white px-1.5 py-0.5 rounded font-semibold">TODAY</span>{% endif %}
+        </div>
+        <!-- Quick-add dropdown for this day -->
+        <form method="post" action="/schedule" class="flex items-center gap-1">
+          <input type="hidden" name="happen_day" value="{{ day.date }}">
+          <select name="workout_id" required class="bg-gray-800 border border-gray-700 rounded text-xs px-2 py-1 max-w-[140px]">
+            <option value="" disabled selected>+ schedule…</option>
+            {% for w in workouts if workouts %}
+            <option value="{{ w.id }}">{{ sport_emoji(w.sport_type) }} {{ w.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white text-xs px-2 py-1 rounded font-semibold">Add</button>
+        </form>
+      </div>
+
+      <!-- Scheduled items -->
+      <div class="px-4 py-2">
+        {% if day.workouts %}
+        <div class="space-y-2">
+          {% for item in day.workouts %}
+          <div class="flex items-center justify-between bg-gray-800/60 rounded-lg px-3 py-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-lg shrink-0">{{ sport_emoji(item.sportType) }}</span>
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate">{{ item.name or 'Workout' }}</p>
+                <p class="text-xs text-gray-400">{{ item.estimatedTime // 60 if item.estimatedTime else 0 }} min · {{ item.sportName or 'Training' }}</p>
+              </div>
+            </div>
+            <form method="post" action="/unschedule" class="shrink-0">
+              <input type="hidden" name="plan_id" value="{{ item.id }}">
+              <input type="hidden" name="id_in_plan" value="{{ item.idInPlan }}">
+              <button type="submit" class="text-gray-500 hover:text-red-400 text-lg px-1">×</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-gray-500 italic">Rest day or not yet planned.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="mt-6 grid grid-cols-3 gap-2">
+    <a href="/templates" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">📚 Templates</a>
+    <a href="/workouts" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">🏋️ Workouts</a>
+    <a href="/dashboard?week_offset=0" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-3 text-center text-sm font-semibold">📅 This Week</a>
+  </div>
+
+</div>
+</body>
+</html>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CorosRelay – Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center p-4">
+<div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+  <div class="text-center mb-6">
+    <div class="text-4xl mb-2">⏱️</div>
+    <h1 class="text-2xl font-bold tracking-tight">CorosRelay</h1>
+    <p class="text-gray-400 text-sm mt-1">Your training plan, without the pain.</p>
+  </div>
+
+  {% if error %}
+  <div class="bg-red-900/30 border border-red-800 text-red-300 rounded-lg p-3 mb-4 text-sm">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/login" class="space-y-4">
+    <div>
+      <label class="block text-xs font-medium text-gray-400 mb-1">Email</label>
+      <input name="email" type="email" required
+             class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-400 mb-1">Password</label>
+      <input name="password" type="password" required
+             class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-400 mb-1">Region</label>
+      <select name="region" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500">
+        <option value="eu">Europe (eu)</option>
+        <option value="us">United States (us)</option>
+        <option value="asia">Asia (asia)</option>
+      </select>
+    </div>
+    <button type="submit"
+            class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">
+      Connect to COROS
+    </button>
+  </form>
+
+  <p class="text-xs text-gray-500 text-center mt-5 leading-relaxed">
+    We use the unofficial Training Hub API. Your credentials are sent directly to COROS servers; we never store your password.
+  </p>
+</div>
+</body>
+</html>
