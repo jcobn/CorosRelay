@@ -19,6 +19,13 @@
 
 <div class="max-w-2xl mx-auto px-4 py-4">
 
+  {% if error %}
+  <div class="bg-red-900/30 border border-red-800 text-red-300 rounded-lg p-3 mb-4 text-sm">
+    {{ error }}
+  </div>
+  {% endif %}
+
+<!-- Title -->
   <h2 class="text-lg font-bold mb-3">🏋️ Your Workout Library</h2>
 
   {% if workouts %}

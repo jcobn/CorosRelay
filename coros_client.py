@@ -5,7 +5,7 @@ Reverse-engineered endpoints; no official API exists.
 import hashlib
 import json
 import time
-from typing import Optional
+from typing import Optional, Union
 from dataclasses import dataclass
 
 import bcrypt
@@ -28,10 +28,19 @@ ENDPOINTS = {
 }
 
 BASE_URLS = {
-    "eu": "https://teameuapi.coros.com",
-    "us": "https://teamapi.coros.com",
-    "asia": "https://teamcnapi.coros.com",
-    "cn": "https://teamcnapi.coros.com",
+    1: "https://teamapi.coros.com",      # US
+    2: "https://teamcnapi.coros.com",    # CN
+    3: "https://teameuapi.coros.com",    # EU
+    4: "https://teamsgapi.coros.com",    # SG / Asia
+}
+
+# Legacy string mapping for fallback
+REGION_STR_MAP = {
+    "us": 1,
+    "cn": 2,
+    "eu": 3,
+    "asia": 4,
+    "sg": 4,
 }
 
 
@@ -39,7 +48,7 @@ BASE_URLS = {
 class AuthState:
     access_token: str
     user_id: str
-    region: str
+    region: Union[int, str]
     timestamp_ms: int
 
 
@@ -53,8 +62,12 @@ def _check(body: dict, context: str) -> None:
         raise CorosError(f"{context}: {msg}")
 
 
-def _base(region: str) -> str:
-    return BASE_URLS.get(region.lower(), BASE_URLS["eu"])
+def _base(region) -> str:
+    """Resolve region to a base URL. Accepts int (regionId) or str."""
+    if isinstance(region, int):
+        return BASE_URLS.get(region, BASE_URLS[3])
+    # String fallback
+    return BASE_URLS.get(REGION_STR_MAP.get(region.lower(), 3))
 
 
 async def login(email: str, password: str, region: str = "eu") -> AuthState:
@@ -75,11 +88,17 @@ async def login(email: str, password: str, region: str = "eu") -> AuthState:
     }
     headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
     
-    # Try requested region first, then fall back to others
-    regions_to_try = [region.lower()] + [r for r in ["eu", "us", "asia", "cn"] if r != region.lower()]
+    # Try all known Training Hub endpoints — COROS login ignores region in payload,
+    # the account lives on exactly one regional backend. We brute-force until we find it.
+    bases_to_try = [
+        "https://teameuapi.coros.com",    # EU
+        "https://teamapi.coros.com",      # US
+        "https://teamcnapi.coros.com",    # CN
+        "https://teamsgapi.coros.com",    # SG/Asia
+    ]
     
-    for attempt_region in regions_to_try:
-        base = _base(attempt_region)
+    last_error = "unknown error"
+    for base in bases_to_try:
         url = f"{base}{ENDPOINTS['login']}"
         
         logger.info(f"[COROS LOGIN] POST {url}")
@@ -91,25 +110,27 @@ async def login(email: str, password: str, region: str = "eu") -> AuthState:
         try:
             data = r.json()
         except Exception:
-            logger.error(f"[COROS LOGIN] non-JSON response from {attempt_region}: {r.text[:500]}")
+            logger.error(f"[COROS LOGIN] non-JSON response from {base}: {r.text[:500]}")
             continue
         
         result = data.get("result")
         msg = data.get("message", "unknown error")
-        logger.info(f"[COROS LOGIN] region={attempt_region} result={result} msg={msg}")
+        logger.info(f"[COROS LOGIN] base={base} result={result} msg={msg}")
         
         if result == "0000":
             token = data["data"]["accessToken"]
             user_id = str(data["data"]["userId"])
+            region_id = int(data["data"].get("regionId", 3))
             return AuthState(
                 access_token=token,
                 user_id=user_id,
-                region=attempt_region,
+                region=region_id,
                 timestamp_ms=int(time.time() * 1000),
             )
+        last_error = msg
     
-    # All regions failed
-    raise CorosError(f"login: {msg} (tried {', '.join(regions_to_try)})")
+    # All bases failed
+    raise CorosError(f"login: {last_error} (tried all regions)")
 
 
 def _headers(auth: AuthState) -> dict:

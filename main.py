@@ -90,10 +90,15 @@ async def _get_auth(request: Request) -> coros.AuthState:
     """Reconstruct AuthState from session or raise."""
     token = request.session.get("coros_token")
     uid = request.session.get("coros_user_id")
-    region = request.session.get("coros_region", "eu")
+    region = request.session.get("coros_region", 3)  # default EU
     ts = request.session.get("coros_ts")
     if not token or not uid:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    # Region may be stored as int or string from older sessions — coerce to int
+    try:
+        region = int(region)
+    except (ValueError, TypeError):
+        region = 3
     return coros.AuthState(
         access_token=token,
         user_id=uid,
@@ -247,13 +252,19 @@ async def logout(request: Request):
 async def dashboard(request: Request, week_offset: int = 0):
     auth = await _get_auth(request)
     start_day, end_day = _week_bounds(week_offset)
+    error_msg = None
     try:
         items = await coros.fetch_schedule(auth, start_day, end_day)
         workouts = await coros.fetch_workouts(auth)
     except coros.CorosError as exc:
-        # Token might be expired — clear and redirect to login
-        request.session.clear()
-        return RedirectResponse(url="/login")
+        # Show error inline on dashboard instead of silently wiping session
+        error_msg = str(exc)
+        items = []
+        workouts = []
+    except Exception as exc:
+        error_msg = f"Unexpected error: {exc}"
+        items = []
+        workouts = []
 
     # Build a calendar grid: Monday -> Sunday
     monday = datetime.strptime(start_day, "%Y%m%d")
@@ -273,6 +284,7 @@ async def dashboard(request: Request, week_offset: int = 0):
         "request": request,
         "days": days,
         "workouts": workouts,
+        "error": error_msg,
         "week_label": f"{monday.strftime('%d %b')} – {(monday + timedelta(days=6)).strftime('%d %b %Y')}",
         "week_offset": week_offset,
         "prev_week": week_offset - 1,
@@ -284,14 +296,19 @@ async def dashboard(request: Request, week_offset: int = 0):
 @app.get("/workouts", response_class=HTMLResponse)
 async def workouts_page(request: Request):
     auth = await _get_auth(request)
+    error_msg = None
     try:
         workouts = await coros.fetch_workouts(auth)
-    except coros.CorosError:
-        request.session.clear()
-        return RedirectResponse(url="/login")
+    except coros.CorosError as exc:
+        error_msg = str(exc)
+        workouts = []
+    except Exception as exc:
+        error_msg = f"Unexpected error: {exc}"
+        workouts = []
     return templates.TemplateResponse("workouts.html", {
         "request": request,
         "workouts": workouts,
+        "error": error_msg,
         "sport_emoji": _sport_emoji,
     })
 
