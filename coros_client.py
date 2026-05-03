@@ -8,6 +8,7 @@ import time
 from typing import Optional
 from dataclasses import dataclass
 
+import bcrypt
 import httpx
 
 USER_AGENT = (
@@ -61,11 +62,16 @@ async def login(email: str, password: str, region: str = "eu") -> AuthState:
     logger = logging.getLogger("coros")
     
     email = email.strip().lower()
+    # COROS web app: ke(password) = MD5(password), then bcrypt hash of that MD5
     password_md5 = hashlib.md5(password.encode("utf-8")).hexdigest()
+    salt = bcrypt.gensalt(rounds=10)
+    bcrypt_hash = bcrypt.hashpw(password_md5.encode("utf-8"), salt)
+    
     payload = {
         "account": email,
         "accountType": 2,
-        "pwd": password_md5,
+        "p1": bcrypt_hash.decode("utf-8"),
+        "p2": salt.decode("utf-8"),
     }
     headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
     
@@ -77,6 +83,7 @@ async def login(email: str, password: str, region: str = "eu") -> AuthState:
         url = f"{base}{ENDPOINTS['login']}"
         
         logger.info(f"[COROS LOGIN] POST {url}")
+        logger.debug(f"[COROS LOGIN] payload fields: account={email}, accountType=2, p1=..., p2=...")
         
         async with httpx.AsyncClient() as client:
             r = await client.post(url, json=payload, headers=headers, timeout=30)
