@@ -57,28 +57,52 @@ def _base(region: str) -> str:
 
 
 async def login(email: str, password: str, region: str = "eu") -> AuthState:
+    import logging
+    logger = logging.getLogger("coros")
+    
+    email = email.strip().lower()
     password_md5 = hashlib.md5(password.encode("utf-8")).hexdigest()
     payload = {
         "account": email,
         "accountType": 2,
         "pwd": password_md5,
     }
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{_base(region)}{ENDPOINTS['login']}",
-            json=payload,
-            headers={"User-Agent": USER_AGENT, "Content-Type": "application/json"},
-        )
-    data = r.json()
-    _check(data, "login")
-    token = data["data"]["accessToken"]
-    user_id = str(data["data"]["userId"])
-    return AuthState(
-        access_token=token,
-        user_id=user_id,
-        region=region.lower(),
-        timestamp_ms=int(time.time() * 1000),
-    )
+    headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
+    
+    # Try requested region first, then fall back to others
+    regions_to_try = [region.lower()] + [r for r in ["eu", "us", "asia", "cn"] if r != region.lower()]
+    
+    for attempt_region in regions_to_try:
+        base = _base(attempt_region)
+        url = f"{base}{ENDPOINTS['login']}"
+        
+        logger.info(f"[COROS LOGIN] POST {url}")
+        
+        async with httpx.AsyncClient() as client:
+            r = await client.post(url, json=payload, headers=headers, timeout=30)
+        
+        try:
+            data = r.json()
+        except Exception:
+            logger.error(f"[COROS LOGIN] non-JSON response from {attempt_region}: {r.text[:500]}")
+            continue
+        
+        result = data.get("result")
+        msg = data.get("message", "unknown error")
+        logger.info(f"[COROS LOGIN] region={attempt_region} result={result} msg={msg}")
+        
+        if result == "0000":
+            token = data["data"]["accessToken"]
+            user_id = str(data["data"]["userId"])
+            return AuthState(
+                access_token=token,
+                user_id=user_id,
+                region=attempt_region,
+                timestamp_ms=int(time.time() * 1000),
+            )
+    
+    # All regions failed
+    raise CorosError(f"login: {msg} (tried {', '.join(regions_to_try)})")
 
 
 def _headers(auth: AuthState) -> dict:

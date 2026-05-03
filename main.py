@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
+
 from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +16,10 @@ import coros_client as coros
 # App init
 # ------------------------------------------------------------------
 app = FastAPI(title="CorosRelay")
-app.add_middleware(SessionMiddleware, secret_key=os.urandom(32).hex(), max_age=86400 * 7)
+# Use a stable secret key so sessions survive server restarts.
+# In production, set COROS_SESSION_SECRET in your environment.
+SESSION_SECRET = os.environ.get("COROS_SESSION_SECRET", "corosrelay-dev-secret-key-change-me")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400 * 7)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -214,14 +220,22 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def do_login(request: Request, email: str = Form(...), password: str = Form(...), region: str = Form("eu")):
+    import logging
+    logger = logging.getLogger("main")
+    logger.info(f"[LOGIN ATTEMPT] email={email} region={region}")
     try:
         auth = await coros.login(email, password, region)
     except coros.CorosError as exc:
+        logger.warning(f"[LOGIN FAILED] {exc}")
         return templates.TemplateResponse("login.html", {"request": request, "error": str(exc)})
+    except Exception as exc:
+        logger.error(f"[LOGIN ERROR] {type(exc).__name__}: {exc}")
+        return templates.TemplateResponse("login.html", {"request": request, "error": f"Internal error: {exc}"})
     request.session["coros_token"] = auth.access_token
     request.session["coros_user_id"] = auth.user_id
     request.session["coros_region"] = auth.region
     request.session["coros_ts"] = auth.timestamp_ms
+    logger.info(f"[LOGIN SUCCESS] user_id={auth.user_id}")
     return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.get("/logout")
